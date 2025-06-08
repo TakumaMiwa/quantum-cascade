@@ -1,6 +1,6 @@
 """
 Finetune OpenAI Whisper on a speech dataset.
-The dataset must contain an 'audio' column and a 'sentence' column with the transcription.
+The dataset must contain an 'audio' column and a 'text' column with the transcription.
 Each example is automatically resampled to 16kHz.
 """
 import argparse
@@ -43,13 +43,21 @@ class DataCollatorSpeechSeq2SeqWithPadding:
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Finetune OpenAI Whisper on a speech dataset")
-    parser.add_argument("--dataset_name", default="mozilla-foundation/common_voice_11_0", help="Name of the dataset on the Hugging Face Hub")
-    parser.add_argument("--language", default="en", help="Language id for Common Voice or similar datasets")
+    parser.add_argument(
+        "--dataset_name",
+        default="librispeech_asr",
+        help="Name of the dataset on the Hugging Face Hub",
+    )
+    parser.add_argument(
+        "--language",
+        default="clean",
+        help="Configuration id for the dataset (for LibriSpeech this is typically 'clean' or 'other')",
+    )
     parser.add_argument("--model_name", default="openai/whisper-small", help="Pretrained model name")
     parser.add_argument("--output_dir", default="whisper_finetuned", help="Where to store the finetuned model")
     parser.add_argument(
         "--dataset_cache_dir",
-        default="mozilla-foundation/common_voice_11_0_cache",
+        default="librispeech_asr_cache",
         help="Directory to store the downloaded dataset cache",
     )
     parser.add_argument("--num_train_epochs", type=int, default=1)
@@ -61,7 +69,7 @@ def parse_args():
 def main():
     args = parse_args()
 
-    # Load dataset. For Common Voice the transcription is in the 'sentence' column.
+    # Load dataset. For LibriSpeech the transcription is in the 'text' column.
     dataset = load_dataset(
         args.dataset_name,
         args.language,
@@ -76,7 +84,7 @@ def main():
     def prepare_batch(batch):
         audio = batch["audio"]
         batch["input_features"] = processor.feature_extractor(audio["array"], sampling_rate=audio["sampling_rate"]).input_features[0]
-        batch["labels"] = processor.tokenizer(batch["sentence"]).input_ids
+        batch["labels"] = processor.tokenizer(batch["text"]).input_ids
         return batch
 
     dataset = dataset.map(prepare_batch, remove_columns=dataset["train"].column_names, num_proc=1)
