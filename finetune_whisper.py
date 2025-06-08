@@ -49,7 +49,7 @@ def parse_args():
     parser.add_argument("--output_dir", default="whisper_finetuned", help="Where to store the finetuned model")
     parser.add_argument(
         "--dataset_cache_dir",
-        default=None,
+        default="mozilla-foundation/common_voice_11_0_cache",
         help="Directory to store the downloaded dataset cache",
     )
     parser.add_argument("--num_train_epochs", type=int, default=1)
