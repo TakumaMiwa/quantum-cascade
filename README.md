@@ -20,4 +20,6 @@ pip install datasets transformers
 python finetune_whisper.py --dataset_name mozilla-foundation/common_voice_11_0 --language en
 ```
 
+To store the downloaded dataset in a specific directory, add the `--dataset_cache_dir` option.
+
 The finetuned model will be saved to `whisper_finetuned` by default.

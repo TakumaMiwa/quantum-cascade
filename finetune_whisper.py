@@ -47,6 +47,11 @@ def parse_args():
     parser.add_argument("--language", default="en", help="Language id for Common Voice or similar datasets")
     parser.add_argument("--model_name", default="openai/whisper-small", help="Pretrained model name")
     parser.add_argument("--output_dir", default="whisper_finetuned", help="Where to store the finetuned model")
+    parser.add_argument(
+        "--dataset_cache_dir",
+        default=None,
+        help="Directory to store the downloaded dataset cache",
+    )
     parser.add_argument("--num_train_epochs", type=int, default=1)
     parser.add_argument("--per_device_train_batch_size", type=int, default=4)
     parser.add_argument("--per_device_eval_batch_size", type=int, default=4)
@@ -57,7 +62,11 @@ def main():
     args = parse_args()
 
     # Load dataset. For Common Voice the transcription is in the 'sentence' column.
-    dataset = load_dataset(args.dataset_name, args.language)
+    dataset = load_dataset(
+        args.dataset_name,
+        args.language,
+        cache_dir=args.dataset_cache_dir,
+    )
 
     # Resample audio and cast column to correct sampling rate expected by Whisper
     dataset = dataset.cast_column("audio", Audio(sampling_rate=16000))
