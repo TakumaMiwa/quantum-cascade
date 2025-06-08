@@ -10,11 +10,36 @@ from datasets import load_dataset, Audio
 from transformers import (
     WhisperForConditionalGeneration,
     WhisperProcessor,
-    DataCollatorSpeechSeq2SeqWithPadding,
     Seq2SeqTrainer,
     Seq2SeqTrainingArguments,
 )
 
+from dataclasses import dataclass
+from typing import Any
+import torch
+
+
+@dataclass
+class DataCollatorSpeechSeq2SeqWithPadding:
+    """Data collator that dynamically pads the inputs and labels for Whisper."""
+
+    processor: Any
+    decoder_start_token_id: int = 50257
+
+    def __call__(self, features):
+        model_input_name = self.processor.model_input_names[0]
+        input_features = [{model_input_name: f[model_input_name]} for f in features]
+        label_features = [{"input_ids": f["labels"]} for f in features]
+
+        batch = self.processor.feature_extractor.pad(input_features, return_tensors="pt")
+        labels_batch = self.processor.tokenizer.pad(label_features, return_tensors="pt")
+        labels = labels_batch["input_ids"].masked_fill(labels_batch.attention_mask.ne(1), -100)
+
+        if (labels[:, 0] == self.decoder_start_token_id).all().cpu().item():
+            labels = labels[:, 1:]
+
+        batch["labels"] = labels
+        return batch
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Finetune OpenAI Whisper on a speech dataset")
