@@ -7,12 +7,12 @@ import torch
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Calculate WER for a fine-tuned Whisper model")
-    parser.add_argument("--dataset_name", default="librispeech_asr", help="Dataset name")
-    parser.add_argument("--language", default="clean", help="Dataset configuration")
+    parser.add_argument("--dataset_name", default="marcel-gohsen/dstc2", help="Dataset name")
+    parser.add_argument("--language", default="default", help="Dataset configuration")
     parser.add_argument("--split", default="test", help="Dataset split for evaluation")
     parser.add_argument(
         "--dataset_cache_dir",
-        default="librispeech_asr_cache",
+        default="dstc2_asr_cache",
         help="Where the dataset cache is stored",
     )
     parser.add_argument(

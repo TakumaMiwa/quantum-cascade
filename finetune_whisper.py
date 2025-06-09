@@ -45,19 +45,19 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Finetune OpenAI Whisper on a speech dataset")
     parser.add_argument(
         "--dataset_name",
-        default="librispeech_asr",
+        default="marcel-gohsen/dstc2",
         help="Name of the dataset on the Hugging Face Hub",
     )
     parser.add_argument(
         "--language",
-        default="clean",
+        default="default",
         help="Configuration id for the dataset (for LibriSpeech this is typically 'clean' or 'other')",
     )
     parser.add_argument("--model_name", default="openai/whisper-small", help="Pretrained model name")
     parser.add_argument("--output_dir", default="whisper_finetuned", help="Where to store the finetuned model")
     parser.add_argument(
         "--dataset_cache_dir",
-        default="librispeech_asr_cache",
+        default="dstc2_asr_cache",
         help="Directory to store the downloaded dataset cache",
     )
     parser.add_argument("--num_train_epochs", type=int, default=1)
