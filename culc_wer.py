@@ -43,6 +43,15 @@ def main():
 
     processor = WhisperProcessor.from_pretrained(args.processor_path)
     model = WhisperForConditionalGeneration.from_pretrained(args.model_path).to(device)
+    # Disable forced decoder ids to avoid generation errors with newer versions
+    # of ``transformers``. Whisper models set ``forced_decoder_ids`` in their
+    # config which conflicts with the decoder prompts that ``generate``
+    # automatically prepares. Setting it to ``None`` ensures the model can
+    # generate from audio features without raising a ``ValueError``.
+    if hasattr(model, "generation_config"):
+        model.generation_config.forced_decoder_ids = None
+    else:
+        model.config.forced_decoder_ids = None
 
     text_column = None
     for col in ["sentence", "text", "transcript"]:
