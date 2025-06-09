@@ -20,6 +20,11 @@ def parse_args():
         default="whisper_finetuned/checkpoint-3903",
         help="Path to the fine-tuned model",
     )
+    parser.add_argument(
+        "--processor_path",
+        default="openai/whisper-small",
+        help="Path or name of the processor to use (defaults to base Whisper model)",
+    )
     parser.add_argument("--use_gpu", action="store_true", help="Use GPU if available")
     return parser.parse_args()
 
@@ -36,7 +41,7 @@ def main():
     )
     dataset = dataset.cast_column("audio", Audio(sampling_rate=16000))
 
-    processor = WhisperProcessor.from_pretrained(args.model_path)
+    processor = WhisperProcessor.from_pretrained(args.processor_path)
     model = WhisperForConditionalGeneration.from_pretrained(args.model_path).to(device)
 
     text_column = None
