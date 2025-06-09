@@ -10,8 +10,8 @@ from datasets import load_dataset, Audio
 from transformers import (
     WhisperForConditionalGeneration,
     WhisperProcessor,
-    Seq2SeqTrainer,
-    Seq2SeqTrainingArguments,
+    Trainer,
+    TrainingArguments,
 )
 
 from dataclasses import dataclass
@@ -75,7 +75,6 @@ def main():
         args.language,
         cache_dir=args.dataset_cache_dir,
     )
-
     # Resample audio and cast column to correct sampling rate expected by Whisper
     dataset = dataset.cast_column("audio", Audio(sampling_rate=16000))
 
@@ -84,32 +83,29 @@ def main():
     def prepare_batch(batch):
         audio = batch["audio"]
         batch["input_features"] = processor.feature_extractor(audio["array"], sampling_rate=audio["sampling_rate"]).input_features[0]
-        batch["labels"] = processor.tokenizer(batch["text"]).input_ids
+        batch["labels"] = processor.tokenizer(batch["transcript"]).input_ids
         return batch
-
-    dataset = dataset.map(prepare_batch, remove_columns=dataset["train"].column_names, num_proc=1)
+    dataset = dataset.map(prepare_batch, remove_columns=dataset["traindev"].column_names, num_proc=1)
 
     model = WhisperForConditionalGeneration.from_pretrained(args.model_name)
-
     data_collator = DataCollatorSpeechSeq2SeqWithPadding(processor=processor)
 
-    training_args = Seq2SeqTrainingArguments(
+    training_args = TrainingArguments(
         output_dir=args.output_dir,
         num_train_epochs=args.num_train_epochs,
         per_device_train_batch_size=args.per_device_train_batch_size,
         per_device_eval_batch_size=args.per_device_eval_batch_size,
         logging_steps=10,
         save_steps=100,
-        evaluation_strategy="epoch",
-        predict_with_generate=True,
+        eval_strategy="epoch",
         fp16=False,
     )
 
-    trainer = Seq2SeqTrainer(
+    trainer = Trainer(
         args=training_args,
         model=model,
-        train_dataset=dataset["train"],
-        eval_dataset=dataset.get("validation"),
+        train_dataset=dataset["traindev"],
+        eval_dataset=dataset.get("test"),
         data_collator=data_collator,
         tokenizer=processor.feature_extractor,
     )
