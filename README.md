@@ -23,3 +23,16 @@ python finetune_whisper.py --dataset_name mozilla-foundation/common_voice_11_0 -
 To store the downloaded dataset in a specific directory, add the `--dataset_cache_dir` option.
 
 The finetuned model will be saved to `whisper_finetuned` by default.
+
+## Evaluating word error rate
+
+After fine-tuning, you can evaluate the model using `culc_wer.py`:
+
+```bash
+python culc_wer.py --model_path path/to/checkpoint \
+                   --processor_path openai/whisper-small
+```
+
+The `--processor_path` argument should point to the base Whisper model
+whose tokenizer was used during training. If not specified, it defaults
+to `openai/whisper-small`.
