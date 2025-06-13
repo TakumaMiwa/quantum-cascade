@@ -30,8 +30,12 @@ After fine-tuning, you can evaluate the model using `culc_wer.py`:
 
 ```bash
 python culc_wer.py --model_path path/to/checkpoint \
-                   --processor_path openai/whisper-small
+                   --processor_path openai/whisper-small \
+                   --n_best 5
 ```
+
+Set `--n_best` greater than 1 to compute an N-best WER, which reports the error
+rate after taking the best among the top predictions.
 
 The `--processor_path` argument should point to the base Whisper model
 whose tokenizer was used during training. If not specified, it defaults

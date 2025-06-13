@@ -26,6 +26,7 @@ def parse_args():
         help="Path or name of the processor to use (defaults to base Whisper model)",
     )
     parser.add_argument("--use_gpu", action="store_true", help="Use GPU if available")
+    parser.add_argument("--n_best", type=int, default=1, help="Number of beams to generate")
     return parser.parse_args()
 
 
@@ -68,15 +69,35 @@ def main():
         ).input_features
         input_features = torch.tensor(input_features).to(device)
         with torch.no_grad():
-            predicted_ids = model.generate(input_features)[0]
-        batch["prediction"] = processor.decode(predicted_ids, skip_special_tokens=True)
+            predicted_ids = model.generate(
+                input_features,
+                num_beams=max(1, args.n_best),
+                num_return_sequences=args.n_best,
+            )
+        predictions = processor.batch_decode(predicted_ids, skip_special_tokens=True)
+        batch["prediction"] = predictions if args.n_best > 1 else predictions[0]
         return batch
 
     results = dataset.map(generate)
     references = results[text_column]
     predictions = results["prediction"]
-    score = wer(references, predictions)
-    print(f"WER: {score:.4f}")
+
+    if args.n_best > 1:
+        best_errors = []
+        total_words = 0
+        for ref, preds in zip(references, predictions):
+            wers = [wer(ref, p) for p in preds]
+            best_w = min(wers)
+            best_errors.append(best_w * len(ref.split()))
+            total_words += len(ref.split())
+        nbest_score = sum(best_errors) / total_words
+        first_preds = [p[0] for p in predictions]
+        one_best_score = wer(references, first_preds)
+        print(f"1-best WER: {one_best_score:.4f}")
+        print(f"{args.n_best}-best WER: {nbest_score:.4f}")
+    else:
+        score = wer(references, predictions)
+        print(f"WER: {score:.4f}")
 
 
 if __name__ == "__main__":
