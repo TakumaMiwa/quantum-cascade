@@ -105,13 +105,36 @@ def main() -> None:
     if text_column is None:
         raise ValueError("No transcription column found in dataset")
 
-    train_dataset = train_dataset.cast_column(args.audio_column, datasets.Audio(sampling_rate=16000))
-    train_dataset = train_dataset.map(prepare_features(args.num_qubits, text_column, "slots"))
+    preprocess_fn = prepare_features(args.num_qubits, text_column, "slots")
+
+    train_dataset = train_dataset.cast_column(
+        args.audio_column, datasets.Audio(sampling_rate=16000)
+    )
+    test_dataset = test_dataset.cast_column(
+        args.audio_column, datasets.Audio(sampling_rate=16000)
+    )
+
+    train_dataset = train_dataset.map(preprocess_fn)
+    test_dataset = test_dataset.map(preprocess_fn)
+
     train_dataset, label2id = encode_labels(train_dataset, "labels")
+
+    def _map_test_labels(batch: Dict) -> Dict:
+        batch["labels"] = label2id[batch["labels"]]
+        return batch
+
+    test_dataset = test_dataset.map(_map_test_labels)
     num_classes = len(label2id)
 
     train_dataset.set_format(type="torch", columns=["input_features", "labels"])
-    dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+    test_dataset.set_format(type="torch", columns=["input_features", "labels"])
+
+    dataloader = torch.utils.data.DataLoader(
+        train_dataset, batch_size=args.batch_size, shuffle=True
+    )
+    test_dataloader = torch.utils.data.DataLoader(
+        test_dataset, batch_size=args.batch_size, shuffle=False
+    )
 
     model = QuantumNeuralNetwork(args.num_qubits, args.num_layers, num_classes)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
@@ -128,7 +151,30 @@ def main() -> None:
             loss.backward()
             optimizer.step()
             epoch_loss.append(loss.item())
-        print(f"Epoch {epoch + 1}/{args.num_epochs} - Loss: {np.mean(epoch_loss):.4f}")
+
+        test_loss: List[float] = []
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for batch in test_dataloader:
+                inputs = batch["input_features"]
+                labels = batch["labels"]
+                outputs = model(inputs)
+                loss = criterion(outputs, labels)
+                test_loss.append(loss.item())
+                if (epoch + 1) % 5 == 0:
+                    preds = torch.argmax(outputs, dim=1)
+                    correct += (preds == labels).sum().item()
+                    total += labels.size(0)
+
+        log = (
+            f"Epoch {epoch + 1}/{args.num_epochs} - Loss: {np.mean(epoch_loss):.4f}"
+            f" - Test Loss: {np.mean(test_loss):.4f}"
+        )
+        if (epoch + 1) % 5 == 0 and total > 0:
+            accuracy = correct / total
+            log += f" - Test Acc: {accuracy:.4f}"
+        print(log)
 
     torch.save({"model_state_dict": model.state_dict(), "label2id": label2id}, args.model_output)
     print(f"Model saved to {args.model_output}")
