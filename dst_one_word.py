@@ -22,7 +22,7 @@ class QuantumNeuralNetwork(nn.Module):
 
         @qml.qnode(dev, interface="torch")
         def circuit(inputs, weights):
-            qml.templates.AngleEmbedding(inputs, wires=range(num_qubits))
+            qml.templates.AmplitudeEmbedding(inputs, wires=range(num_qubits))
             qml.templates.BasicEntanglerLayers(weights, wires=range(num_qubits))
             return [qml.expval(qml.PauliZ(i)) for i in range(num_qubits)]
 
@@ -38,17 +38,7 @@ def prepare_features(num_qubits: int, text_column: str):
     """Create a preprocessing function for the dataset."""
 
     def _preprocess(batch: Dict) -> Dict:
-        audio = batch["audio"]
-        array = np.asarray(audio["array"], dtype=np.float32)
-        if len(array) < num_qubits:
-            padded = np.zeros(num_qubits, dtype=np.float32)
-            padded[: len(array)] = array
-            array = padded
-        else:
-            idxs = np.linspace(0, len(array) - 1, num_qubits).astype(int)
-            array = array[idxs]
-        batch["input_features"] = array
-        batch["labels"] = batch[text_column]
+        """Create one-hot encoded features for the transcription."""
         return batch
 
     return _preprocess
@@ -69,11 +59,12 @@ def encode_labels(dataset: datasets.Dataset, label_column: str) -> Dict[str, int
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train a simple QNN on one-word audio data")
-    parser.add_argument("--dataset_path", default="one_word_dataset", help="Path of the dataset on disk")
+    parser.add_argument("--train_dataset_path", default="one_word_dataset/traindev", help="Path of the dataset on disk")
+    parser.add_argument("--test_dataset_path", default="one_word_dataset/test", help="Path of the dataset on disk")
     parser.add_argument("--audio_column", default="audio", help="Column containing audio data")
     parser.add_argument("--num_qubits", type=int, default=8)
-    parser.add_argument("--num_layers", type=int, default=2)
-    parser.add_argument("--num_epochs", type=int, default=3)
+    parser.add_argument("--num_layers", type=int, default=5)
+    parser.add_argument("--num_epochs", type=int, default=100)
     parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument("--lr", type=float, default=1e-2)
     parser.add_argument("--model_output", default="qnn_model.pt", help="Where to save the trained model")
@@ -83,24 +74,25 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    dataset = datasets.load_from_disk(args.dataset_path)
+    train_dataset = datasets.load_from_disk(args.train_dataset_path)
+    test_dataset = datasets.load_from_disk(args.test_dataset_path)
 
     # identify text column
     text_column = None
     for col in ["sentence", "text", "transcript", "labels"]:
-        if col in dataset.column_names:
+        if col in train_dataset.column_names:
             text_column = col
             break
     if text_column is None:
         raise ValueError("No transcription column found in dataset")
 
-    dataset = dataset.cast_column(args.audio_column, datasets.Audio(sampling_rate=16000))
-    dataset = dataset.map(prepare_features(args.num_qubits, text_column))
-    dataset, label2id = encode_labels(dataset, "labels")
+    train_dataset = train_dataset.cast_column(args.audio_column, datasets.Audio(sampling_rate=16000))
+    train_dataset = train_dataset.map(prepare_features(args.num_qubits, text_column))
+    train_dataset, label2id = encode_labels(train_dataset, "labels")
     num_classes = len(label2id)
 
-    dataset.set_format(type="torch", columns=["input_features", "labels"])
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+    train_dataset.set_format(type="torch", columns=["input_features", "labels"])
+    dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
 
     model = QuantumNeuralNetwork(args.num_qubits, args.num_layers, num_classes)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
