@@ -34,24 +34,28 @@ class QuantumNeuralNetwork(nn.Module):
         return self.classifier(x)
 
 
-def prepare_features(num_qubits: int, text_column: str):
+def prepare_features(num_qubits: int, text_column: str, label_column: str):
     """Create a preprocessing function for the dataset."""
 
     word2index: Dict[str, int] = {}
+    label2index: Dict[str, int] = {}
 
     def _preprocess(batch: Dict) -> Dict:
         """Create one-hot encoded features for the transcription."""
         # Use the transcription text as the label
+        label = batch[label_column][0]
+        if label not in label2index:
+            label2index[label] = len(label2index)
+        batch["labels"] = label2index[label]
         text = batch[text_column]
-        batch["labels"] = text
 
         # Map each unique word to an index for the one-hot feature vector
         if text not in word2index:
             word2index[text] = len(word2index)
 
         index = word2index[text]
-        features = np.zeros(num_qubits, dtype=np.float32)
-        if index < num_qubits:
+        features = np.zeros(2**num_qubits, dtype=np.float32)
+        if index < 2**num_qubits:
             features[index] = 1.0
         batch["input_features"] = features
         return batch
@@ -102,7 +106,7 @@ def main() -> None:
         raise ValueError("No transcription column found in dataset")
 
     train_dataset = train_dataset.cast_column(args.audio_column, datasets.Audio(sampling_rate=16000))
-    train_dataset = train_dataset.map(prepare_features(args.num_qubits, text_column))
+    train_dataset = train_dataset.map(prepare_features(args.num_qubits, text_column, "slots"))
     train_dataset, label2id = encode_labels(train_dataset, "labels")
     num_classes = len(label2id)
 
