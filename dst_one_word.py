@@ -37,8 +37,23 @@ class QuantumNeuralNetwork(nn.Module):
 def prepare_features(num_qubits: int, text_column: str):
     """Create a preprocessing function for the dataset."""
 
+    word2index: Dict[str, int] = {}
+
     def _preprocess(batch: Dict) -> Dict:
         """Create one-hot encoded features for the transcription."""
+        # Use the transcription text as the label
+        text = batch[text_column]
+        batch["labels"] = text
+
+        # Map each unique word to an index for the one-hot feature vector
+        if text not in word2index:
+            word2index[text] = len(word2index)
+
+        index = word2index[text]
+        features = np.zeros(num_qubits, dtype=np.float32)
+        if index < num_qubits:
+            features[index] = 1.0
+        batch["input_features"] = features
         return batch
 
     return _preprocess
