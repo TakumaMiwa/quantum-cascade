@@ -140,8 +140,6 @@ def main():
     if text_column is None:
         raise ValueError("No transcription column found in dataset")
 
-    dictionary_size = len(set(train_dataset[text_column]))
-    args.n_best = dictionary_size
 
     processor = WhisperProcessor.from_pretrained(args.processor_path)
     model = WhisperForConditionalGeneration.from_pretrained(args.model_path).to(device)
