@@ -76,8 +76,11 @@ def main():
         ).to(device)
         beam_outputs = model.generate(
             inputs.input_features,
-            num_beams=args.n_best,
+            num_beams=max(1, args.n_best),
+            num_return_sequences=args.n_best,
             max_length=5,
+            output_scores=True,
+            return_dict_in_generate=True,
         )
         # 出力列とそれぞれのスコア
         sequences = beam_outputs.sequences  # (num_return_sequences, seq_len)
@@ -90,13 +93,14 @@ def main():
         probs = torch.softmax(sequence_scores, dim=0)
 
         # 表示
-        for i, (text, score, prob) in enumerate(zip(decoded_texts, sequence_scores, probs)):
+        for i, (text, score, prob) in enumerate(
+            zip(decoded_texts, sequence_scores, probs)
+        ):
             print(f"Candidate {i+1}:")
             print(f"  Text: {text}")
             print(f"  Log score: {score.item():.4f}")
             print(f"  Normalized prob: {prob.item():.4f}")
-        return
-  
+
 
 if __name__ == "__main__":
     main()
