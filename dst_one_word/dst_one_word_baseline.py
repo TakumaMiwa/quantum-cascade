@@ -6,7 +6,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 import pennylane as qml
+import os
 
+## TO DO
+# スロットが無いデータの対応を決める
+# 訓練データとテストデータの重複率を調べる
 
 class QuantumNeuralNetwork(nn.Module):
     """Simple QNN for word classification."""
@@ -86,7 +90,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num_epochs", type=int, default=100)
     parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument("--lr", type=float, default=1e-2)
-    parser.add_argument("--model_output", default="qnn_model.pt", help="Where to save the trained model")
+    parser.add_argument("--model_output", default="models", help="Where to save the trained model")
     return parser.parse_args()
 
 
@@ -163,6 +167,7 @@ def main() -> None:
                 loss = criterion(outputs, labels)
                 test_loss.append(loss.item())
                 if (epoch + 1) % 5 == 0:
+                    print(outputs)
                     preds = torch.argmax(outputs, dim=1)
                     correct += (preds == labels).sum().item()
                     total += labels.size(0)
@@ -175,9 +180,10 @@ def main() -> None:
             accuracy = correct / total
             log += f" - Test Acc: {accuracy:.4f}"
         print(log)
-
-    torch.save({"model_state_dict": model.state_dict(), "label2id": label2id}, args.model_output)
-    print(f"Model saved to {args.model_output}")
+        if (epoch + 1) % 10 == 0:
+            print(f"Saving model at epoch {epoch + 1}")
+            torch.save({"model_state_dict": model.state_dict(), "label2id": label2id}, os.path.join(args.model_output, f"model_epoch_{epoch + 1}.pt"))
+      
 
 
 if __name__ == "__main__":
