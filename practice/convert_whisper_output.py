@@ -45,6 +45,12 @@ def main():
         args.dataset_name,
     )
     dataset = dataset.cast_column("audio", Audio(sampling_rate=16000))
+    # Keep only the audio column to avoid collate errors when using a DataLoader
+    dataset = dataset.remove_columns(
+        [c for c in dataset.column_names if c != "audio"]
+    )
+    dataset.set_format(type="torch", columns=["audio"])
+
     processor = WhisperProcessor.from_pretrained(args.processor_path)
     model = WhisperForConditionalGeneration.from_pretrained(args.model_path).to(device)
     if hasattr(model, "generation_config"):
@@ -52,17 +58,6 @@ def main():
     else:
         model.config.forced_decoder_ids = None
 
-    text_column = None
-    for col in ["sentence", "text", "transcript"]:
-        if col in dataset.column_names:
-            text_column = col
-            break
-    if text_column is None:
-        raise ValueError("No suitable text column found in the dataset.")
-    dataset.set_format(
-        type="torch",
-        columns=["audio", text_column],
-    )
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=1,
