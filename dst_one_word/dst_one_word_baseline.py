@@ -46,7 +46,7 @@ def prepare_features(num_qubits: int, text_column: str, label_column: str):
 
     def _preprocess(batch: Dict) -> Dict:
         """Create one-hot encoded features for the transcription."""
-        # Use the transcription text as the label
+        # Use the slot data as the label
         label = batch[label_column][0]
         if label not in label2index:
             label2index[label] = len(label2index)
