@@ -17,7 +17,7 @@ def parse_args():
     )
     parser.add_argument(
         "--model_path",
-        default="whisper_finetuned/checkpoint-3903",
+        default="openai/whisper-small",
         help="Path to the fine-tuned model",
     )
     parser.add_argument(
@@ -81,7 +81,7 @@ def main():
     results = dataset.map(generate)
     references = results[text_column]
     predictions = results["prediction"]
-
+    output = []
     if args.n_best > 1:
         best_errors = []
         total_words = 0
@@ -93,11 +93,14 @@ def main():
         nbest_score = sum(best_errors) / total_words
         first_preds = [p[0] for p in predictions]
         one_best_score = wer(references, first_preds)
-        print(f"1-best WER: {one_best_score:.4f}")
-        print(f"{args.n_best}-best WER: {nbest_score:.4f}")
+        output.append(f"1-best WER: {one_best_score:.4f}")
+        output.append(f"{args.n_best}-best WER: {nbest_score:.4f}")
     else:
         score = wer(references, predictions)
-        print(f"WER: {score:.4f}")
+        output.append(f"WER: {score:.4f}")
+
+    with open("quantum-cascade/wer_results.txt", "w") as f:
+        f.write("\n".join(output))
 
 
 if __name__ == "__main__":
