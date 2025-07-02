@@ -1,4 +1,5 @@
 import argparse
+import datasets
 from datasets import load_dataset, Audio
 from transformers import WhisperForConditionalGeneration, WhisperProcessor
 from jiwer import wer
@@ -17,7 +18,7 @@ def parse_args():
     )
     parser.add_argument(
         "--model_path",
-        default="openai/whisper-small",
+        default="./whisper_finetuned/checkpoint-3903",
         help="Path to the fine-tuned model",
     )
     parser.add_argument(
@@ -34,11 +35,14 @@ def main():
     args = parse_args()
     device = "cuda" if args.use_gpu and torch.cuda.is_available() else "cpu"
 
-    dataset = load_dataset(
-        args.dataset_name,
-        args.language,
-        split=args.split,
-        cache_dir=args.dataset_cache_dir,
+    # dataset = load_dataset(
+    #     args.dataset_name,
+    #     args.language,
+    #     split=args.split,
+    #     cache_dir=args.dataset_cache_dir,
+    # )
+    dataset = datasets.load_from_disk(
+        "one_word_dataset/traindev",
     )
     dataset = dataset.cast_column("audio", Audio(sampling_rate=16000))
 
@@ -99,7 +103,7 @@ def main():
         score = wer(references, predictions)
         output.append(f"WER: {score:.4f}")
 
-    with open("quantum-cascade/wer_results.txt", "w") as f:
+    with open("quantum-cascade/wer_results_one_word.txt", "w") as f:
         f.write("\n".join(output))
 
 

@@ -1,6 +1,7 @@
 import argparse
 import datasets
 import torch
+import os
 def main():
     parser = argparse.ArgumentParser(description="Extract one word from audio")
     parser.add_argument("--dataset_name", default="marcel-gohsen/dstc2", help="Name of the dataset")
@@ -30,7 +31,6 @@ def main():
         break
     if text_column is None:
         raise ValueError("No transcription column found in dataset")
-    new_dataset = datasets.DatasetDict()
     for data_key in ["traindev", "test"]:
         new_datalist = []
         for item in dataset[data_key]:
@@ -42,13 +42,13 @@ def main():
                         new_item = {
                             "audio": item[args.audio_column],
                             "transcript": item[text_column],
-                            "slots": item.get("slots", []),  # Assuming 'slots' is optional
+                            "slots": [value],  # Assuming 'slots' is optional
                         }
                         new_datalist.append(new_item)
-        new_dataset[data_key] = datasets.Dataset.from_list(new_datalist)
-    ## save the new dataset
-    new_dataset.save_to_disk(args.new_dataset_path)
-    print(f"New dataset with one-word transcriptions saved to {args.new_dataset_path}")
+        new_dataset = datasets.Dataset.from_list(new_datalist)
+        ## save the new dataset
+        new_dataset.save_to_disk(os.path.join(args.new_dataset_path, data_key))
+        print(f"New dataset with one-word transcriptions saved to {os.path.join(args.new_dataset_path, data_key)}")
 
 if __name__ == "__main__":
     main()

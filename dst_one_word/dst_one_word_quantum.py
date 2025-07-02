@@ -48,12 +48,12 @@ def main() -> None:
 
 
     # Load datasets
-    # train_dataset = prepare_features(args.train_dataset_path, model=classical_model, processor=processor)
-    # train_dataset.save_to_disk("one_word_dataset/traindev_prepared")
-    train_dataset = datasets.load_from_disk("one_word_dataset/traindev_prepared")
-    # test_dataset = prepare_features(args.test_dataset_path, model=classical_model, processor=processor)
-    # test_dataset.save_to_disk("one_word_dataset/test_prepared")
-    test_dataset = datasets.load_from_disk("one_word_dataset/test_prepared")
+    train_dataset = prepare_features(args.train_dataset_path, model=classical_model, processor=processor)
+    train_dataset.save_to_disk("one_word_dataset/intermidiate_data/traindev_1_best")
+    # train_dataset = datasets.load_from_disk("one_word_dataset/traindev_prepared")
+    test_dataset = prepare_features(args.test_dataset_path, model=classical_model, processor=processor)
+    test_dataset.save_to_disk("one_word_dataset/intermidiate_data/test_1_best")
+    # test_dataset = datasets.load_from_disk("one_word_dataset/test_prepared")
     
     
     # Initialize model
@@ -66,7 +66,7 @@ def main() -> None:
         test_dataset, batch_size=args.batch_size, shuffle=False
     )
 
-    model = QuantumNeuralNetwork(args.num_qubits, args.num_layers, num_classes=69)
+    model = QuantumNeuralNetwork(args.num_qubits, args.num_layers, num_classes=71)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     criterion = torch.nn.CrossEntropyLoss()
 

@@ -3,13 +3,16 @@ from typing import Dict, List
 import json
 
 def main() -> None:
-    dataset = datasets.load_from_disk("one_word_dataset/traindev")
+    dataset = [
+         datasets.load_from_disk("one_word_dataset/traindev"),
+         datasets.load_from_disk("one_word_dataset/test")
+    ]
     slot_list: Dict[str, int] = {}
     for data in dataset:
-        for slot in data["slots"]:
-            key, value = slot.split("=")
-            if key == "food" and value not in slot_list:
-                    slot_list[value] = len(slot_list)
+        for item in data:
+            for slot in item["slots"]:
+                if slot not in slot_list:
+                    slot_list[slot] = len(slot_list)
     
     with open("one_word_dataset/slot_list.json", "w") as f:
         json.dump(slot_list, f, indent=4)

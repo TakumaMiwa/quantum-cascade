@@ -66,6 +66,7 @@ def prepare_features(
     
     with open(cor_table_path, 'r') as f:
         cor_table = json.load(f)
+    # cor_table = {v: k for k, v in cor_table.items()}
     dataset = dataset.map(_generate)
     with open(slots_dic_path, 'r') as f:
         slots_dic = json.load(f)
@@ -73,15 +74,23 @@ def prepare_features(
         ## convert logits to dstc2 format
         logits = batch["logits"]
         features = np.zeros(2**num_qubits, dtype=np.float32)
+        max_key = 0
+        max_value = 0.0
+        # if max_key in cor_table:
+        #     features[cor_table[max_key]] = 1.0
+        # else:
+        #     features[0] = 1.0
         for key, value in cor_table.items():
-
-            features[int(key)] = logits[0][-1][value]
-        # features[0] = 1.0 - np.sum(features[1:])  # 確率の合計が1になるように調整
+            if max_value < logits[0][-1][value]:
+                max_value = logits[0][-1][value]
+                max_key = int(key)
+        features[max_key] = 1.0
+        
+    
         batch["input_features"] = features
     
         label = batch["slots"][0]
-        slot, value = label.split("=")
-        batch["labels"] = slots_dic.get(value, 0)  # デフォルト値は0
+        batch["labels"] = slots_dic.get(label, 0)  # デフォルト値は0
         return batch
     dataset = dataset.map(_preprocess, remove_columns=dataset.column_names)
     dataset.set_format(type="torch", columns=["input_features", "labels"])

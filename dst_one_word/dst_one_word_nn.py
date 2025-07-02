@@ -9,7 +9,7 @@ import pennylane as qml
 import os
 import sys
 sys.path.append("quantum-cascade")
-from models.qnn import QuantumNeuralNetwork
+from models.nn import NeuralNetwork
 import json
 
 ## TO DO
@@ -49,12 +49,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--train_dataset_path", default="one_word_dataset/traindev", help="Path of the dataset on disk")
     parser.add_argument("--test_dataset_path", default="one_word_dataset/test", help="Path of the dataset on disk")
     parser.add_argument("--audio_column", default="audio", help="Column containing audio data")
-    parser.add_argument("--num_qubits", type=int, default=10)
+    parser.add_argument("--num_qubits", type=int, default=8)
     parser.add_argument("--num_layers", type=int, default=5)
     parser.add_argument("--num_epochs", type=int, default=100)
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--lr", type=float, default=1e-2)
-    parser.add_argument("--model_output", default="models/qnn", help="Where to save the trained model")
+    parser.add_argument("--model_output", default="models/nn", help="Where to save the trained model")
     return parser.parse_args()
 
 
@@ -106,7 +106,7 @@ def main() -> None:
         test_dataset, batch_size=args.batch_size, shuffle=False
     )
 
-    model = QuantumNeuralNetwork(num_qubits=args.num_qubits, num_layers=args.num_layers, num_classes=num_classes)
+    model = NeuralNetwork(args.num_layers, input_size=256, output_size=num_classes)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     criterion = nn.CrossEntropyLoss()
 
