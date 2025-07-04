@@ -11,6 +11,8 @@ import sys
 sys.path.append("quantum-cascade")
 from models.qnn import QuantumNeuralNetwork
 import json
+import csv
+import matplotlib.pyplot as plt
 
 ## TO DO
 # スロットが無いデータの対応を決める
@@ -46,12 +48,11 @@ def prepare_features(num_qubits: int, text_column: str, label_column: str):
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train a simple QNN on one-word audio data")
-    parser.add_argument("--train_dataset_path", default="one_word_dataset/traindev", help="Path of the dataset on disk")
-    parser.add_argument("--test_dataset_path", default="one_word_dataset/test", help="Path of the dataset on disk")
+    parser.add_argument("--dataset_path", default="one_word_dataset", help="Path of the dataset on disk")
     parser.add_argument("--audio_column", default="audio", help="Column containing audio data")
-    parser.add_argument("--num_qubits", type=int, default=10)
+    parser.add_argument("--num_qubits", type=int, default=8)
     parser.add_argument("--num_layers", type=int, default=5)
-    parser.add_argument("--num_epochs", type=int, default=100)
+    parser.add_argument("--num_epochs", type=int, default=20)
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--lr", type=float, default=1e-2)
     parser.add_argument("--model_output", default="models/qnn", help="Where to save the trained model")
@@ -61,8 +62,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    train_dataset = datasets.load_from_disk(args.train_dataset_path)
-    test_dataset = datasets.load_from_disk(args.test_dataset_path)
+    train_dataset = datasets.load_from_disk(os.path.join(args.dataset_path, "traindev"))
+    test_dataset = datasets.load_from_disk(os.path.join(args.dataset_path, "test"))
 
     # identify text column
     text_column = None
@@ -110,6 +111,10 @@ def main() -> None:
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     criterion = nn.CrossEntropyLoss()
 
+    train_loss_history: List[float] = []
+    test_loss_history: List[float] = []
+    accuracy_history: List[float] = []
+
     for epoch in range(args.num_epochs):
         epoch_loss: List[float] = []
         for batch in dataloader:
@@ -137,24 +142,66 @@ def main() -> None:
                 # sys.exit()
                 loss = criterion(outputs, labels)
                 test_loss.append(loss.item())
-                if (epoch + 1) % 5 == 0:
-                    preds = torch.argmax(outputs, dim=1)
-                    correct += (preds == labels).sum().item()
-                    total += labels.size(0)
+                preds = torch.argmax(outputs, dim=1)
+                correct += (preds == labels).sum().item()
+                total += labels.size(0)
 
         log = (
             f"Epoch {epoch + 1}/{args.num_epochs} - Loss: {np.mean(epoch_loss):.4f}"
             f" - Test Loss: {np.mean(test_loss):.4f}"
         )
-        if (epoch + 1) % 5 == 0 and total > 0:
-            accuracy = correct / total
-            log += f" - Test Acc: {accuracy:.4f}"
+        accuracy = correct / total if total else 0.0
+        accuracy_history.append(accuracy)
+        train_loss_history.append(np.mean(epoch_loss))
+        test_loss_history.append(np.mean(test_loss))
+        log += f" - Test Acc: {accuracy:.4f}"
         print(log)
         if (epoch + 1) % 10 == 0:
             print(f"Saving model at epoch {epoch + 1}")
             torch.save({"model_state_dict": model.state_dict(), "label2id": label2id}, os.path.join(args.model_output, f"model_epoch_{epoch + 1}.pt"))
-      
 
+    metrics_path = os.path.join(args.model_output, "metrics_qnn_gold.csv")
+    with open(metrics_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["epoch", "train_loss", "test_loss", "accuracy"])
+        for i, (tr, te, ac) in enumerate(zip(train_loss_history, test_loss_history, accuracy_history)):
+            writer.writerow([i + 1, tr, te, ac])
+
+    plt.figure()
+    plt.plot(range(1, args.num_epochs + 1), train_loss_history, label="train_loss")
+    plt.plot(range(1, args.num_epochs + 1), test_loss_history, label="test_loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.savefig(os.path.join(args.model_output, "loss_history_qnn_gold.png"))
+    plt.close()
+
+    plt.figure()
+    plt.plot(range(1, args.num_epochs + 1), accuracy_history, label="accuracy")
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy")
+    plt.legend()
+    plt.savefig(os.path.join(args.model_output, "accuracy_history_qnn_gold.png"))
+    plt.close()
+
+    id2label = {v: k for k, v in label2id.items()}
+    results_path = os.path.join(args.model_output, "test_results_qnn_gold.csv")
+    with open(results_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["input_features", "output_features", "true_label", "pred_label"])
+        with torch.no_grad():
+            for batch in test_dataloader:
+                inputs = batch["input_features"]
+                labels = batch["labels"]
+                outputs = model(inputs)
+                preds = torch.argmax(outputs, dim=1)
+                for inp, lab, pred in zip(inputs, labels, preds):
+                    writer.writerow([
+                        json.dumps(inp.tolist()),
+                        json.dumps(outputs.tolist()),
+                        id2label[int(lab)],
+                        id2label[int(pred)],
+                    ])
 
 if __name__ == "__main__":
     main()

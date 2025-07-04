@@ -84,9 +84,8 @@ def main() -> None:
         args.audio_column, datasets.Audio(sampling_rate=16000)
     )
 
-    train_dataset = train_dataset.map(preprocess_fn)
-    test_dataset = test_dataset.map(preprocess_fn)
-    
+    train_dataset = train_dataset.map(preprocess_fn, load_from_cache_file=False)
+    test_dataset = test_dataset.map(preprocess_fn, load_from_cache_file=False)
 
     def _map_test_labels(batch: Dict) -> Dict:
         batch["labels"] = int(label2id[batch["labels"]])
@@ -94,8 +93,8 @@ def main() -> None:
     
     with open("one_word_dataset/slot_list.json", "r") as f:
         label2id = json.load(f)
-    train_dataset = train_dataset.map(_map_test_labels)
-    test_dataset = test_dataset.map(_map_test_labels)
+    train_dataset = train_dataset.map(_map_test_labels, load_from_cache_file=False)
+    test_dataset = test_dataset.map(_map_test_labels, load_from_cache_file=False)
     num_classes = len(label2id)
 
     train_dataset.set_format(type="torch", columns=["input_features", "labels"])
@@ -163,7 +162,7 @@ def main() -> None:
 
     os.makedirs(args.model_output, exist_ok=True)
 
-    metrics_path = os.path.join(args.model_output, "metrics.csv")
+    metrics_path = os.path.join(args.model_output, "metrics_nn_gold.csv")
     with open(metrics_path, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["epoch", "train_loss", "test_loss", "accuracy"])
@@ -176,7 +175,7 @@ def main() -> None:
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.legend()
-    plt.savefig(os.path.join(args.model_output, "loss_history.png"))
+    plt.savefig(os.path.join(args.model_output, "loss_history_nn_gold.png"))
     plt.close()
 
     plt.figure()
@@ -184,14 +183,14 @@ def main() -> None:
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
     plt.legend()
-    plt.savefig(os.path.join(args.model_output, "accuracy_history.png"))
+    plt.savefig(os.path.join(args.model_output, "accuracy_history_nn_gold.png"))
     plt.close()
 
     id2label = {v: k for k, v in label2id.items()}
-    results_path = os.path.join(args.model_output, "test_results.csv")
+    results_path = os.path.join(args.model_output, "test_results_nn_gold.csv")
     with open(results_path, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["input_features", "true_label", "pred_label"])
+        writer.writerow(["input_features", "output_features", "true_label", "pred_label"])
         with torch.no_grad():
             for batch in test_dataloader:
                 inputs = batch["input_features"]
@@ -201,6 +200,7 @@ def main() -> None:
                 for inp, lab, pred in zip(inputs, labels, preds):
                     writer.writerow([
                         json.dumps(inp.tolist()),
+                        json.dumps(outputs.tolist()),
                         id2label[int(lab)],
                         id2label[int(pred)],
                     ])
