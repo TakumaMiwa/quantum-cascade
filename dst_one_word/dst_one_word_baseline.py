@@ -83,9 +83,8 @@ def main() -> None:
         args.audio_column, datasets.Audio(sampling_rate=16000)
     )
 
-    train_dataset = train_dataset.map(preprocess_fn)
-    test_dataset = test_dataset.map(preprocess_fn)
-    
+    train_dataset = train_dataset.map(preprocess_fn, load_from_cache_file=False)
+    test_dataset = test_dataset.map(preprocess_fn, load_from_cache_file=False)  
 
     def _map_test_labels(batch: Dict) -> Dict:
         batch["labels"] = int(label2id[batch["labels"]])
@@ -93,8 +92,8 @@ def main() -> None:
     
     with open("one_word_dataset/slot_list.json", "r") as f:
         label2id = json.load(f)
-    train_dataset = train_dataset.map(_map_test_labels)
-    test_dataset = test_dataset.map(_map_test_labels)
+    train_dataset = train_dataset.map(_map_test_labels, load_from_cache_file=False)
+    test_dataset = test_dataset.map(_map_test_labels, load_from_cache_file=False)
     num_classes = len(label2id)
 
     train_dataset.set_format(type="torch", columns=["input_features", "labels"])
