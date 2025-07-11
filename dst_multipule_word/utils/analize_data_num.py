@@ -1,4 +1,10 @@
 import argparse
+import os
+from collections import defaultdict
+from typing import Dict
+
+import datasets
+import pandas as pd
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train a simple QNN on one-word audio data")
@@ -36,3 +42,31 @@ def main():
     }
     traindevとtestのデータセットを結合し，スロットごとに単語数をカウントしてCSVファイルに保存します．
     """
+
+    args = parse_args()
+    dataset = datasets.load_dataset(args.dataset_name)
+    combined = datasets.concatenate_datasets([dataset["traindev"], dataset["test"]])
+
+    slot_counts: Dict[str, Dict[int, int]] = defaultdict(lambda: defaultdict(int))
+    max_words = 0
+
+    for item in combined:
+        num_words = len(str(item["transcript"]).split())
+        max_words = max(max_words, num_words)
+        for slot in item["slots"]:
+            slot_counts[slot][num_words] += 1
+
+    word_range = list(range(1, max_words + 1))
+    df = pd.DataFrame(0, index=sorted(slot_counts.keys()), columns=word_range)
+
+    for slot, counts in slot_counts.items():
+        for n, c in counts.items():
+            df.loc[slot, n] = c
+
+    os.makedirs("multiple_word", exist_ok=True)
+    df.index.name = "slot"
+    df.to_csv("multiple_word/dstc2_data_num_per_word.csv")
+
+
+if __name__ == "__main__":
+    main()
