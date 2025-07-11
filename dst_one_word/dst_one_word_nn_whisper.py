@@ -1,6 +1,6 @@
 import sys
 sys.path.append("quantum-cascade")
-from models.qnn import QuantumNeuralNetwork
+from models.nn import NeuralNetwork
 from utils.prepare_features import prepare_features
 import torch
 import argparse
@@ -31,8 +31,8 @@ def parse_args():
         default="openai/whisper-small",
         help="Path or name of the processor to use (defaults to base Whisper model)",
     )
-    parser.add_argument("--model_output", default="models/qnn", help="Where to save the trained model")
-    parser.add_argument("--lr", type=float, default=1e-2)
+    parser.add_argument("--model_output", default="models/nn", help="Where to save the trained model")
+    parser.add_argument("--lr", type=float, default=1e-3)
     
     return parser.parse_args()
 
@@ -60,14 +60,14 @@ def main() -> None:
     
     
     # Initialize model
-    model = QuantumNeuralNetwork(num_qubits=args.num_qubits, num_layers=args.num_layers, num_classes=71)
-
+    model = NeuralNetwork(args.num_layers, input_size=128, output_size=71)
     dataloader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True
     )
     test_dataloader = torch.utils.data.DataLoader(
         test_dataset, batch_size=args.batch_size, shuffle=False
     )
+
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     criterion = torch.nn.CrossEntropyLoss()
@@ -114,9 +114,9 @@ def main() -> None:
         print(log)
         if (epoch + 1) % 10 == 0:
             print(f"Saving model at epoch {epoch + 1}")
-            torch.save({"model_state_dict": model.state_dict()}, os.path.join(args.model_output, "whisper_all_dic", f"quantum_cascade_epoch_{epoch + 1}.pt"))
-
-    metrics_path = os.path.join(args.model_output, "whisper_all_dic", "metrics.csv")
+            torch.save({"model_state_dict": model.state_dict()}, os.path.join(args.model_output, "whisper_amplitude", f"quantum_cascade_epoch_{epoch + 1}.pt"))
+        
+    metrics_path = os.path.join(args.model_output, "whisper_amplitude", "metrics.csv")
     with open(metrics_path, "w", newline="") as f:
         writer =csv.writer(f)
         writer.writerow(["epoch", "train_loss", "test_loss", "accuracy"])
@@ -129,7 +129,7 @@ def main() -> None:
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.legend()
-    plt.savefig(os.path.join(args.model_output, "whisper_all_dic", "loss_history_qnn_whisper.png"))
+    plt.savefig(os.path.join(args.model_output, "whisper_amplitude", "loss_history_qnn_whisper.png"))
     plt.close()
 
     plt.figure()
@@ -137,13 +137,13 @@ def main() -> None:
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
     plt.legend()
-    plt.savefig(os.path.join(args.model_output, "whisper_all_dic", "accuracy_history_qnn_whisper.png"))
+    plt.savefig(os.path.join(args.model_output, "whisper_amplitude", "accuracy_history_qnn_whisper.png"))
     plt.close()
 
     with open(os.path.join("one_word_dataset", "slot_list.json"), "r") as f:
         label2id = json.load(f)
     id2label = {v: k for k, v in label2id.items()}
-    results_path = os.path.join(args.model_output, "whisper_all_dic", "test_results_qnn_whisper.csv")
+    results_path = os.path.join(args.model_output, "whisper_amplitude", "test_results_qnn_whisper.csv")
     with open(results_path, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["input_features", "output_features", "true_label", "pred_label"])

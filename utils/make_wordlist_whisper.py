@@ -13,9 +13,9 @@ def main():
         token = tokenizer.convert_ids_to_tokens(token_id)
         id_dic[token_id] = token.lower()
         word_dic[token.lower()] = token_id
-    with open("quantum-cascade/whisper_idlist.json", "w") as f:
+    with open("one_word_dataset/whisper_idlist.json", "w") as f:
         json.dump(id_dic, f, indent=4)
-    with open("quantum-cascade/whisper_wordlist.json", "w") as f:
+    with open("one_word_dataset/whisper_wordlist.json", "w") as f:
         json.dump(word_dic, f, indent=4)
 if __name__ == "__main__":
     main()

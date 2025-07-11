@@ -1,7 +1,7 @@
-from datasets import load_dataset
+from datasets import load_from_disk
 import json
 def main():
-    dataset = load_dataset("marcel-gohsen/dstc2", "default", split="traindev")
+    dataset = load_from_disk("./one_word_dataset/traindev")
 
     text_column = None
     for col in ["sentence", "text", "transcript"]:
@@ -19,9 +19,9 @@ def main():
                 word_dic.add(word.lower())
     word_dic = {"<unk>": 0, **{word: i + 1 for i, word in enumerate(sorted(word_dic))}}
     id_dic = {v: k for k, v in word_dic.items()}
-    with open("dstc2_asr_cache/dstc2_wordlist.json", "w") as f:
+    with open("one_word_dataset/dstc2_wordlist.json", "w") as f:
         json.dump(word_dic, f, indent=4)
-    with open("dstc2_asr_cache/dstc2_idlist.json", "w") as f:
+    with open("one_word_dataset/dstc2_idlist.json", "w") as f:
         json.dump(id_dic, f, indent=4)
 
 if __name__ == "__main__":

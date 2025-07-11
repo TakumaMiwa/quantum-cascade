@@ -19,10 +19,14 @@ def main() -> None:
     """Draw learning curves from saved metrics."""
 
     metric_files: Dict[str, str] = {
-        "nn_gold": "models/nn/metrics_nn_gold.csv",
-        "nn_whisper": "models/nn/metrics_nn_whisper.csv",
-        "qnn_gold": "models/qnn/metrics_qnn_gold.csv",
-        "qnn_whisper": "models/qnn/metrics_qnn_whisper.csv",
+        "nn_gold": "models/nn/gold/metrics.csv",
+        "nn_whisper_all_dic": "models/nn/whisper_all_dic/metrics.csv",
+        "nn_whisper_within_dstc_dic": "models/nn/whisper_within_dstc_dic/metrics.csv",
+        "nn_whisper_amplitude": "models/nn/whisper_amplitude/metrics.csv",
+        "qnn_gold": "models/qnn/gold/metrics.csv",
+        "qnn_whisper_all_dic": "models/qnn/whisper_all_dic/metrics.csv",
+        "qnn_whisper_within_dstc_dic": "models/qnn/whisper_within_dstc_dic/metrics.csv",
+        "qnn_whisper_amplitude": "models/qnn/whisper_amplitude/metrics.csv"
     }
 
     metrics: Dict[str, pd.DataFrame] = {}
@@ -71,10 +75,10 @@ def main() -> None:
     summary_df = pd.DataFrame.from_dict(summary, orient="index")
     print("Final metrics:")
     print(summary_df)
-    summary_df.to_csv("metrics_summary.csv")
+    summary_df.to_csv("quantum-cascade/metrics_summary.csv")
 
     plt.tight_layout()
-    plt.savefig("learning_process.png")
+    plt.savefig("quantum-cascade/learning_process.png")
 
 if __name__ == "__main__":
     main()

@@ -51,7 +51,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--train_dataset_path", default="one_word_dataset/traindev", help="Path of the dataset on disk")
     parser.add_argument("--test_dataset_path", default="one_word_dataset/test", help="Path of the dataset on disk")
     parser.add_argument("--audio_column", default="audio", help="Column containing audio data")
-    parser.add_argument("--num_qubits", type=int, default=8)
+    parser.add_argument("--num_qubits", type=int, default=7)
     parser.add_argument("--num_layers", type=int, default=5)
     parser.add_argument("--num_epochs", type=int, default=100)
     parser.add_argument("--batch_size", type=int, default=1)
@@ -107,7 +107,7 @@ def main() -> None:
         test_dataset, batch_size=args.batch_size, shuffle=False
     )
 
-    model = NeuralNetwork(args.num_layers, input_size=256, output_size=num_classes)
+    model = NeuralNetwork(args.num_layers, input_size=128, output_size=num_classes)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     criterion = nn.CrossEntropyLoss()
 
@@ -162,7 +162,7 @@ def main() -> None:
 
     os.makedirs(args.model_output, exist_ok=True)
 
-    metrics_path = os.path.join(args.model_output, "metrics_nn_gold.csv")
+    metrics_path = os.path.join(args.model_output, "gold", "metrics_nn_gold.csv")
     with open(metrics_path, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["epoch", "train_loss", "test_loss", "accuracy"])

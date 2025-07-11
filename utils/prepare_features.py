@@ -11,10 +11,10 @@ def prepare_features(
             local: bool = True,
             split: str = "train",
             cache_dir: str = "cache",
-            cor_table_path: str = "quantum-cascade/correspondence_table.json",
+            cor_table_path: str = "one_word_dataset/correspondence_table.json",
             slots_dic_path: str = "one_word_dataset/slot_list.json",
             n_best: int = 5,
-            num_qubits: int = 10,
+            num_qubits: int = 7,
         ) -> Dict:
     ## load dataset
     if not local:
@@ -67,32 +67,43 @@ def prepare_features(
     with open(cor_table_path, 'r') as f:
         cor_table = json.load(f)
     # cor_table = {v: k for k, v in cor_table.items()}
-    dataset = dataset.map(_generate)
+    dataset = dataset.map(_generate, load_from_cache_file=False)
     with open(slots_dic_path, 'r') as f:
         slots_dic = json.load(f)
     def _preprocess(batch: Dict) -> Dict:
         ## convert logits to dstc2 format
         logits = batch["logits"]
         features = np.zeros(2**num_qubits, dtype=np.float32)
-        max_key = 0
-        max_value = 0.0
-        # if max_key in cor_table:
-        #     features[cor_table[max_key]] = 1.0
+        ## one-hot encoding
+        # cor_table_rev = {int(v): int(k) for k, v in cor_table.items()}
+        # max_idx = logits[0][0].index(max(logits[0][0]))
+        # if max_idx in cor_table_rev:
+        #     features[cor_table_rev[max_idx]] = 1.0
         # else:
         #     features[0] = 1.0
-        for key, value in cor_table.items():
-            if max_value < logits[0][-1][value]:
-                max_value = logits[0][-1][value]
-                max_key = int(key)
-        features[max_key] = 1.0
         
-    
+        max_key = 0
+        max_value = 0.0
+        for key, value in cor_table.items():
+            # one-hot within dstc2 dictionary
+            # if max_value < logits[0][-1][value]:
+            #     max_value = logits[0][-1][value]
+            #     max_key = int(key)
+
+        #     # quantum cascade
+            features[int(key)] = logits[0][-1][value]
+        # features[max_key] = 1.0
         batch["input_features"] = features
-    
+
+        def norm(x):
+            return x / np.sum(x)
+
+        batch["input_features"] = norm(features)
+
         label = batch["slots"][0]
         batch["labels"] = slots_dic.get(label, 0)  # デフォルト値は0
         return batch
-    dataset = dataset.map(_preprocess, remove_columns=dataset.column_names)
+    dataset = dataset.map(_preprocess, remove_columns=dataset.column_names, load_from_cache_file=False)
     dataset.set_format(type="torch", columns=["input_features", "labels"])
     return dataset
         
