@@ -53,7 +53,8 @@ def main():
     for item in combined:
         num_words = len(str(item["transcript"]).split())
         max_words = max(max_words, num_words)
-        for slot in item["slots"]:
+        for item in item["slots"]:
+            slot, value = item.split("=")
             slot_counts[slot][num_words] += 1
 
     word_range = list(range(1, max_words + 1))
@@ -63,9 +64,9 @@ def main():
         for n, c in counts.items():
             df.loc[slot, n] = c
 
-    os.makedirs("multiple_word", exist_ok=True)
+    os.makedirs("multiple_word_dataset", exist_ok=True)
     df.index.name = "slot"
-    df.to_csv("multiple_word/dstc2_data_num_per_word.csv")
+    df.to_csv("multiple_word_dataset/dstc2_data_num_per_word.csv")
 
 
 if __name__ == "__main__":
