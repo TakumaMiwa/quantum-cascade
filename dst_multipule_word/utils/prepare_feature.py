@@ -68,6 +68,12 @@ def prepare_feature(
                     max_value = prob
                     max_index = i
             feature[max_index] = 1.0
+        # When all probabilities are zero, the feature vector becomes all zeros
+        # which results in NaN during AmplitudeEmbedding normalization. Avoid
+        # this by setting a small value to the first index so that the norm is
+        # non-zero and the vector can be normalized safely.
+        if np.all(feature == 0):
+            feature[0] = 1.0
         batch["input_features"] = feature
 
         # ラベルの取得と変換
