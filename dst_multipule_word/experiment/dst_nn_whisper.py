@@ -20,11 +20,6 @@ def parse_args() -> argparse.Namespace:
         default="multiple_word_dataset/traindev",
         help="Path of the dataset on disk",
     )
-    parser.add_argument(
-        "--test_dataset_path",
-        default="multiple_word_dataset/test",
-        help="Path of the dataset on disk",
-    )
     parser.add_argument("--num_qubits", type=int, default=10, help="Number of qubits used for feature preparation")
     parser.add_argument("--num_layers", type=int, default=5, help="Number of layers in the neural network")
     parser.add_argument("--num_epochs", type=int, default=100, help="Number of training epochs")
@@ -63,13 +58,10 @@ def main() -> None:
         num_qubits=args.num_qubits,
         experiment_name=args.experiment_name,
     )
-    test_dataset = prepare_feature(
-        args.test_dataset_path,
-        model=classical_model,
-        processor=processor,
-        num_qubits=args.num_qubits,
-        experiment_name=args.experiment_name,
-    )
+
+    dataset_split = train_dataset.train_test_split(test_size=0.2, shuffle=True, seed=42)
+    train_dataset = dataset_split["train"]
+    val_dataset = dataset_split["test"]
 
     with open(os.path.join("multiple_word_dataset", "dictionary", "slot_list.json"), "r") as f:
         label2id = json.load(f)
@@ -77,14 +69,14 @@ def main() -> None:
     num_classes = len(label2id)
 
     model = NeuralNetwork(args.num_layers, input_size=2 ** args.num_qubits, output_size=num_classes)
-    dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-    test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+    val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     criterion = torch.nn.CrossEntropyLoss()
 
     train_loss_history: List[float] = []
-    test_loss_history: List[float] = []
+    val_loss_history: List[float] = []
     accuracy_history: List[float] = []
     if args.experiment_name == "amplitude":
         save_dir = "whisper_amplitude"
@@ -92,7 +84,7 @@ def main() -> None:
         save_dir = "whisper_1_best"
     for epoch in range(args.num_epochs):
         epoch_loss: List[float] = []
-        for batch in dataloader:
+        for batch in train_dataloader:
             inputs = batch["input_features"]
             labels = batch["labels"]
             optimizer.zero_grad()
@@ -102,29 +94,29 @@ def main() -> None:
             optimizer.step()
             epoch_loss.append(loss.item())
 
-        test_loss: List[float] = []
+        val_loss: List[float] = []
         correct = 0
         total = 0
         with torch.no_grad():
-            for batch in test_dataloader:
+            for batch in val_dataloader:
                 inputs = batch["input_features"]
                 labels = batch["labels"]
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)
-                test_loss.append(loss.item())
+                val_loss.append(loss.item())
                 preds = torch.argmax(outputs, dim=1)
                 correct += (preds == labels).sum().item()
                 total += labels.size(0)
 
         log = (
             f"Epoch {epoch + 1}/{args.num_epochs} - Loss: {np.mean(epoch_loss):.4f}"
-            f" - Test Loss: {np.mean(test_loss):.4f}"
+            f" - Val Loss: {np.mean(val_loss):.4f}"
         )
         accuracy = correct / total if total > 0 else 0.0
         accuracy_history.append(accuracy)
         train_loss_history.append(np.mean(epoch_loss))
-        test_loss_history.append(np.mean(test_loss))
-        log += f" - Test Acc: {accuracy:.4f}"
+        val_loss_history.append(np.mean(val_loss))
+        log += f" - Val Acc: {accuracy:.4f}"
         print(log)
         if (epoch + 1) % 10 == 0:
             os.makedirs(os.path.join(args.model_output, save_dir, "models"), exist_ok=True)
@@ -141,13 +133,13 @@ def main() -> None:
     os.makedirs(os.path.dirname(metrics_path), exist_ok=True)
     with open(os.path.join(metrics_path, "metrics.csv"), "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["epoch", "train_loss", "test_loss", "accuracy"])
+        writer.writerow(["epoch", "train_loss", "val_loss", "accuracy"])
         for i in range(len(train_loss_history)):
-            writer.writerow([i + 1, train_loss_history[i], test_loss_history[i], accuracy_history[i]])
+            writer.writerow([i + 1, train_loss_history[i], val_loss_history[i], accuracy_history[i]])
 
     plt.figure()
     plt.plot(range(1, args.num_epochs + 1), train_loss_history, label="train_loss")
-    plt.plot(range(1, args.num_epochs + 1), test_loss_history, label="test_loss")
+    plt.plot(range(1, args.num_epochs + 1), val_loss_history, label="val_loss")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.legend()
@@ -162,12 +154,12 @@ def main() -> None:
     plt.savefig(os.path.join(metrics_path, "accuracy_history_nn_whisper.png"))
     plt.close()
 
-    results_path = os.path.join(metrics_path, "test_results_nn_whisper.csv")
+    results_path = os.path.join(metrics_path, "val_results_nn_whisper.csv")
     with open(results_path, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["input_features", "output_features", "true_label", "pred_label"])
         with torch.no_grad():
-            for batch in test_dataloader:
+            for batch in val_dataloader:
                 inputs = batch["input_features"]
                 labels = batch["labels"]
                 outputs = model(inputs)
