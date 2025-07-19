@@ -39,7 +39,7 @@ def parse_args() -> argparse.Namespace:
         default="openai/whisper-small",
         help="Path or name of the processor to use",
     )
-    parser.add_argument("--model_output", default="models/nn", help="Where to save the trained model")
+    parser.add_argument("--model_output", default="multiple_word_output/nn", help="Where to save the trained model")
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--experiment_name", default="amplitude", help="Feature generation method")
     return parser.parse_args()
@@ -71,12 +71,12 @@ def main() -> None:
         experiment_name=args.experiment_name,
     )
 
-    with open(os.path.join("multiple_word_dataset", "slot_list.json"), "r") as f:
+    with open(os.path.join("multiple_word_dataset", "dictionary", "slot_list.json"), "r") as f:
         label2id = json.load(f)
     id2label = {v: k for k, v in label2id.items()}
     num_classes = len(label2id)
 
-    model = NeuralNetwork(args.num_layers, input_size=2 * args.num_qubits, output_size=num_classes)
+    model = NeuralNetwork(args.num_layers, input_size=2 ** args.num_qubits, output_size=num_classes)
     dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 
@@ -86,7 +86,10 @@ def main() -> None:
     train_loss_history: List[float] = []
     test_loss_history: List[float] = []
     accuracy_history: List[float] = []
-
+    if args.experiment_name == "amplitude":
+        save_dir = "whisper_amplitude"
+    elif args.experiment_name == "1-best":
+        save_dir = "whisper_1_best"
     for epoch in range(args.num_epochs):
         epoch_loss: List[float] = []
         for batch in dataloader:
@@ -124,18 +127,19 @@ def main() -> None:
         log += f" - Test Acc: {accuracy:.4f}"
         print(log)
         if (epoch + 1) % 10 == 0:
-            os.makedirs(os.path.join(args.model_output, "whisper_amplitude"), exist_ok=True)
+            os.makedirs(os.path.join(args.model_output, save_dir, "models"), exist_ok=True)
             torch.save(
                 {"model_state_dict": model.state_dict()},
                 os.path.join(
                     args.model_output,
-                    "whisper_amplitude",
+                    save_dir,
                     f"quantum_cascade_epoch_{epoch + 1}.pt",
                 ),
             )
 
-    metrics_path = os.path.join(args.model_output, "whisper_amplitude", "metrics.csv")
-    with open(metrics_path, "w", newline="") as f:
+    metrics_path = os.path.join(args.model_output, save_dir)
+    os.makedirs(os.path.dirname(metrics_path), exist_ok=True)
+    with open(os.path.join(metrics_path, "metrics.csv"), "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["epoch", "train_loss", "test_loss", "accuracy"])
         for i in range(len(train_loss_history)):
@@ -147,7 +151,7 @@ def main() -> None:
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.legend()
-    plt.savefig(os.path.join(args.model_output, "whisper_amplitude", "loss_history_nn_whisper.png"))
+    plt.savefig(os.path.join(metrics_path, "loss_history_nn_whisper.png"))
     plt.close()
 
     plt.figure()
@@ -155,10 +159,10 @@ def main() -> None:
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
     plt.legend()
-    plt.savefig(os.path.join(args.model_output, "whisper_amplitude", "accuracy_history_nn_whisper.png"))
+    plt.savefig(os.path.join(metrics_path, "accuracy_history_nn_whisper.png"))
     plt.close()
 
-    results_path = os.path.join(args.model_output, "whisper_amplitude", "test_results_nn_whisper.csv")
+    results_path = os.path.join(metrics_path, "test_results_nn_whisper.csv")
     with open(results_path, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["input_features", "output_features", "true_label", "pred_label"])

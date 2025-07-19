@@ -1,11 +1,16 @@
 from datasets import load_from_disk, Audio
-
+from typing import Dict
+import torch
+import datasets
+import json
+import numpy as np
 def prepare_feature(
     dataset_path: str, 
         model,
         processor,
         num_qubits: int = 10,
         experiment_name: str = "amplitude",
+        max_length: int = 10
     ) -> Dict:
     ## load dataset
     dataset = load_from_disk(dataset_path)
@@ -22,43 +27,48 @@ def prepare_feature(
                 input_features=input_features,
                 return_dict_in_generate=True,
                 output_scores=True,
-                max_new_tokens=args.max_length,
+                max_new_tokens=max_length,
             )
         logits = torch.stack(outputs.scores, dim=1)
         probs = torch.nn.functional.softmax(logits, dim=-1)
         batch["probs"] = probs
-
+        return batch
+    dataset = dataset.map(
+        _generate,
+        load_from_cache_file=False,
+    )
     ## target_token_seqsの定義
     # キャッシュから読み込む
     with open("multiple_word_dataset/tokenizer_cache/tokenizer_cache_traindev.json", "r") as f:
         target_token_seqs = json.load(f)
-    
-    with open(slots_dic_path, 'r') as f:
+    target_token_seqs = {int(k): v for k, v in target_token_seqs.items()}
+    with open("multiple_word_dataset/dictionary/slot_list.json", 'r') as f:
         slots_dic = json.load(f)
     def _culc_text_prob(batch: Dict) -> Dict:
         # シーケンスごとの確率を求める
-        feature = np.zeros(2 * num_qubits, dtype=np.float32)
+        probs = batch["probs"]
+        feature = np.zeros(2 ** num_qubits, dtype=np.float32)
         if experiment_name == "amplitude":
             for i, ids in target_token_seqs.items():
                 prob = 1.0
                 for step, token_id in enumerate(ids):
-                    if step >= probs.shape[1]:
+                    if step >= len(probs[0]):
                         break
-                    prob *= probs[0, step, token_id].item()
+                    prob *= probs[0][step][token_id]
                 feature[i] = prob
         elif experiment_name == "1-best":
             max_value, max_index = 0, 0
             for i, ids in target_token_seqs.items():
                 prob = 1.0
                 for step, token_id in enumerate(ids):
-                    if step >= probs.shape[1]:
+                    if step >= len(probs[0]):
                         break
-                    prob *= probs[0, step, token_id].item()
+                    prob *= probs[0][step][token_id]
                 if prob > max_value:
                     max_value = prob
                     max_index = i
             feature[max_index] = 1.0
-        batch["feature"] = feature
+        batch["input_features"] = feature
 
         # ラベルの取得と変換
         label = batch["slots"][0]
