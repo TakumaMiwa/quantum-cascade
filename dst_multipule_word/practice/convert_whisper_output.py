@@ -22,15 +22,9 @@ def parse_args():
     )
     parser.add_argument("--use_gpu", action="store_true", help="Use GPU if available")
     parser.add_argument(
-        "--target_words",
-        nargs="+",
-        default=[],
-        help="Target words/phrases to calculate probabilities for",
-    )
-    parser.add_argument(
         "--max_length",
         type=int,
-        default=4,
+        default=10,
         help="Maximum number of tokens considered (padding shorter targets)",
     )
    
@@ -53,8 +47,9 @@ def main():
     if pad_id is None:
         pad_id = processor.tokenizer.eos_token_id
 
+    target_words = ["european food"]
     target_token_seqs: List[List[int]] = []
-    for w in args.target_words:
+    for w in target_words:
         ids = processor.tokenizer.encode(w, add_special_tokens=False)
         if len(ids) < args.max_length:
             ids += [pad_id] * (args.max_length - len(ids))
@@ -80,7 +75,7 @@ def main():
 
         print(f"sample {i}: probability distribution shape {probs.shape}")
 
-        for phrase, ids in zip(args.target_words, target_token_seqs):
+        for phrase, ids in zip(target_words, target_token_seqs):
             prob = 1.0
             for step, token_id in enumerate(ids):
                 if step >= probs.shape[1]:
