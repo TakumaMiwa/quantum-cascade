@@ -41,9 +41,9 @@ def parse_args() -> argparse.Namespace:
         help="Path or name of the processor to use",
     )
     parser.add_argument("--model_output", default="multiple_word_output/qnn", help="Where to save the trained model")
-    parser.add_argument("--lr", type=float, default=1e-2)
+    parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument(
-        "--experiment_name", default="amplitude", help="Feature generation method (amplitude or 1-best)"
+        "--experiment_name", default="1-best", help="Feature generation method (amplitude or 1-best)"
     )
     return parser.parse_args()
 
@@ -90,7 +90,7 @@ def main() -> None:
     accuracy_history: List[float] = []
 
     if args.experiment_name == "amplitude":
-        save_dir = "whisper_amplitude"
+        save_dir = "whisper_amplitude_10"
     elif args.experiment_name == "1-best":
         save_dir = "whisper_1_best"
     else:
@@ -117,6 +117,12 @@ def main() -> None:
                 labels = batch["labels"]
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)
+                if torch.isnan(loss):
+                    print("NaN detected in validation loss")
+                    print("inputs:", inputs)
+                    print("outputs:", outputs)
+                    import sys
+                    sys.exit()
                 val_loss.append(loss.item())
                 preds = torch.argmax(outputs, dim=1)
                 correct += (preds == labels).sum().item()
@@ -139,6 +145,7 @@ def main() -> None:
                 os.path.join(
                     args.model_output,
                     save_dir,
+                    "models",
                     f"quantum_cascade_epoch_{epoch + 1}.pt",
                 ),
             )

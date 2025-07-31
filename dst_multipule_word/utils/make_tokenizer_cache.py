@@ -19,11 +19,11 @@ def main():
                 target_token_list.append(ids[:10])
         
         if split == "traindev":
-            target_token_seqs = {str(i): ids for i, ids in enumerate(target_token_list)}
+            target_token_seqs = {str(i+1): ids for i, ids in enumerate(target_token_list)}
             with open("multiple_word_dataset/tokenizer_cache/tokenizer_cache_traindev.json", "w") as f:
                 json.dump(target_token_seqs, f, indent=4)
         else:
-            target_token_seqs = {str(i): ids for i, ids in enumerate(target_token_list)}
+            target_token_seqs = {str(i+1): ids for i, ids in enumerate(target_token_list)}
             with open("multiple_word_dataset/tokenizer_cache/tokenizer_cache_all.json", "w") as f:
                 json.dump(target_token_seqs, f, indent=4)
 if __name__ == "__main__":

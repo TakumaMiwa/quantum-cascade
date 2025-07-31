@@ -36,7 +36,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--model_output", default="multiple_word_output/nn", help="Where to save the trained model")
     parser.add_argument("--lr", type=float, default=1e-3)
-    parser.add_argument("--experiment_name", default="amplitude", help="Feature generation method")
+    parser.add_argument("--experiment_name", default="1-best", help="Feature generation method")
     return parser.parse_args()
 
 
@@ -82,6 +82,8 @@ def main() -> None:
         save_dir = "whisper_amplitude"
     elif args.experiment_name == "1-best":
         save_dir = "whisper_1_best"
+    elif args.experiment_name == "gold":
+        save_dir = "gold"
     for epoch in range(args.num_epochs):
         epoch_loss: List[float] = []
         for batch in train_dataloader:
@@ -125,6 +127,7 @@ def main() -> None:
                 os.path.join(
                     args.model_output,
                     save_dir,
+                    "models",
                     f"quantum_cascade_epoch_{epoch + 1}.pt",
                 ),
             )

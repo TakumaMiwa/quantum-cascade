@@ -12,8 +12,17 @@ def prepare_feature(
         experiment_name: str = "amplitude",
         max_length: int = 10
     ) -> Dict:
+
+    
     ## load dataset
     dataset = load_from_disk(dataset_path)
+
+    """
+    experiment_name=="gold"の場合の処理を追加してください．
+    この時datasetの"transcript"をそのまま使い，slotを予測します．
+    入力されたテキストをトークナイザでエンコーディングし，target_token_seqsを用いてone-hotベクトルを生成します．
+    ラベルの取得は他と同様に行います．
+    """
     dataset = dataset.cast_column("audio", datasets.Audio(sampling_rate=16000))
 
     def _generate(batch: Dict) -> Dict:
@@ -72,8 +81,10 @@ def prepare_feature(
         # which results in NaN during AmplitudeEmbedding normalization. Avoid
         # this by setting a small value to the first index so that the norm is
         # non-zero and the vector can be normalized safely.
-        if np.all(feature == 0):
+        if sum(feature) == 0:
             feature[0] = 1.0
+        # Normalize the feature vector
+        feature = feature / np.sum(feature)
         batch["input_features"] = feature
 
         # ラベルの取得と変換
