@@ -41,9 +41,9 @@ def parse_args() -> argparse.Namespace:
         help="Path or name of the processor to use",
     )
     parser.add_argument("--model_output", default="multiple_word_output/qnn", help="Where to save the trained model")
-    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--lr", type=float, default=5e-4)
     parser.add_argument(
-        "--experiment_name", default="1-best", help="Feature generation method (amplitude or 1-best)"
+        "--experiment_name", default="gold", help="Feature generation method (amplitude or 1-best)"
     )
     return parser.parse_args()
 
@@ -93,8 +93,8 @@ def main() -> None:
         save_dir = "whisper_amplitude_10"
     elif args.experiment_name == "1-best":
         save_dir = "whisper_1_best"
-    else:
-        save_dir = args.experiment_name
+    elif args.experiment_name == "gold":
+        save_dir = "gold_lr_0.0005"
 
     for epoch in range(args.num_epochs):
         epoch_loss: List[float] = []
