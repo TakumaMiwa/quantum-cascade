@@ -202,17 +202,20 @@ def prepare_feature_sum_after_dst(
         # Sort by probability in descending order and select top-n_best
         top_n = sorted(scores, key=lambda x: x[1], reverse=True)[:n_best]
         feature = np.zeros((n_best, num_qubits), dtype=np.float32)
-        for row, (idx, _) in enumerate(top_n):
+        text_probs = np.zeros(n_best, dtype=np.float32)
+        for row, (idx, prob) in enumerate(top_n):
+            text_probs[row] = prob
             if idx < 2 ** num_qubits:
                 for col in range(num_qubits):
                     if (idx >> col) & 1:
                         feature[row][col] = 1.0
 
         batch["input_features"] = feature
+        batch["text_probs"] = text_probs
         label = batch["slots"][0]
         batch["labels"] = slots_dic.get(label, 0)
         return batch
 
     dataset = dataset.map(_process_batch, remove_columns=dataset.column_names, load_from_cache_file=False)
-    dataset.set_format(type="torch", columns=["input_features", "labels"])
+    dataset.set_format(type="torch", columns=["input_features", "text_probs", "labels"])
     return dataset

@@ -2,7 +2,10 @@ import sys
 import os
 sys.path.append("quantum-cascade")
 from models.nn import NeuralNetwork
-from dst_multipule_word.utils.prepare_feature import prepare_feature
+from dst_multipule_word.utils.prepare_feature import (
+    prepare_feature,
+    prepare_feature_sum_after_dst,
+)
 import torch
 import argparse
 from transformers import WhisperForConditionalGeneration, WhisperProcessor
@@ -96,7 +99,14 @@ def main() -> None:
             inputs = batch["input_features"]
             labels = batch["labels"]
             optimizer.zero_grad()
-            outputs = model(inputs)
+            if args.experiment_name == "binary_n-best_after":
+                probs = batch["text_probs"]
+                b, n_best, num_qubits = inputs.shape
+                outputs = model(inputs.view(b * n_best, num_qubits))
+                outputs = outputs.view(b, n_best, -1)
+                outputs = (outputs * probs.unsqueeze(-1)).sum(dim=1)
+            else:
+                outputs = model(inputs)
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
@@ -109,7 +119,14 @@ def main() -> None:
             for batch in val_dataloader:
                 inputs = batch["input_features"]
                 labels = batch["labels"]
-                outputs = model(inputs)
+                if args.experiment_name == "binary_n-best_after":
+                    probs = batch["text_probs"]
+                    b, n_best, num_qubits = inputs.shape
+                    outputs = model(inputs.view(b * n_best, num_qubits))
+                    outputs = outputs.view(b, n_best, -1)
+                    outputs = (outputs * probs.unsqueeze(-1)).sum(dim=1)
+                else:
+                    outputs = model(inputs)
                 loss = criterion(outputs, labels)
                 val_loss.append(loss.item())
                 preds = torch.argmax(outputs, dim=1)
@@ -171,12 +188,19 @@ def main() -> None:
             for batch in val_dataloader:
                 inputs = batch["input_features"]
                 labels = batch["labels"]
-                outputs = model(inputs)
+                if args.experiment_name == "binary_n-best_after":
+                    probs = batch["text_probs"]
+                    b, n_best, num_qubits = inputs.shape
+                    outputs = model(inputs.view(b * n_best, num_qubits))
+                    outputs = outputs.view(b, n_best, -1)
+                    outputs = (outputs * probs.unsqueeze(-1)).sum(dim=1)
+                else:
+                    outputs = model(inputs)
                 preds = torch.argmax(outputs, dim=1)
-                for inp, lab, pred in zip(inputs, labels, preds):
+                for inp, lab, pred, out in zip(inputs, labels, preds, outputs):
                     writer.writerow([
                         json.dumps(inp.tolist()),
-                        json.dumps(outputs.tolist()),
+                        json.dumps(out.tolist()),
                         id2label[int(lab)],
                         id2label[int(pred)],
                     ])
