@@ -36,7 +36,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--model_output", default="multiple_word_output/nn", help="Where to save the trained model")
     parser.add_argument("--lr", type=float, default=1e-3)
-    parser.add_argument("--experiment_name", default="gold", help="Feature generation method")
+    parser.add_argument("--experiment_name", default="binary_n-best", help="Feature generation method")
     return parser.parse_args()
 
 
@@ -51,13 +51,21 @@ def main() -> None:
     else:
         classical_model.config.forced_decoder_ids = None
 
-    train_dataset = prepare_feature(
-        args.train_dataset_path,
-        model=classical_model,
-        processor=processor,
-        num_qubits=args.num_qubits,
-        experiment_name=args.experiment_name,
-    )
+    if args.experiment_name == "binary_n-best_after":
+        train_dataset = prepare_feature_sum_after_dst(
+            args.train_dataset_path,
+            model=classical_model,
+            processor=processor,
+            num_qubits=args.num_qubits,
+        )
+    else:
+        train_dataset = prepare_feature(
+            args.train_dataset_path,
+            model=classical_model,
+            processor=processor,
+            num_qubits=args.num_qubits,
+            experiment_name=args.experiment_name,
+        )
 
     dataset_split = train_dataset.train_test_split(test_size=0.2, shuffle=True, seed=42)
     train_dataset = dataset_split["train"]
@@ -68,7 +76,10 @@ def main() -> None:
     id2label = {v: k for k, v in label2id.items()}
     num_classes = len(label2id)
 
-    model = NeuralNetwork(args.num_layers, input_size=2 ** args.num_qubits, output_size=num_classes)
+    if "binary" in args.experiment_name:
+        model = NeuralNetwork(args.num_layers, input_size=args.num_qubits, output_size=num_classes)
+    else:
+        model = NeuralNetwork(args.num_layers, input_size=2 ** args.num_qubits, output_size=num_classes)
     train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
 
@@ -78,12 +89,7 @@ def main() -> None:
     train_loss_history: List[float] = []
     val_loss_history: List[float] = []
     accuracy_history: List[float] = []
-    if args.experiment_name == "amplitude":
-        save_dir = "whisper_amplitude"
-    elif args.experiment_name == "1-best":
-        save_dir = "whisper_1_best"
-    elif args.experiment_name == "gold":
-        save_dir = "gold"
+    save_dir = args.experiment_name
     for epoch in range(args.num_epochs):
         epoch_loss: List[float] = []
         for batch in train_dataloader:

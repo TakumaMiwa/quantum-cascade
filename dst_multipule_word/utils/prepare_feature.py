@@ -4,13 +4,15 @@ import torch
 import datasets
 import json
 import numpy as np
+from datasets import load_from_disk
 def prepare_feature(
     dataset_path: str, 
         model,
         processor,
         num_qubits: int = 10,
         experiment_name: str = "amplitude",
-        max_length: int = 10
+        max_length: int = 10,
+        n_best = 5,
     ) -> Dict:
 
     
@@ -95,6 +97,59 @@ def prepare_feature(
                     break
             if not found:
                 feature[0] = 1.0
+        elif experiment_name == "binary_gold":
+            token_ids = processor.tokenizer.encode(
+                batch["transcript"], add_special_tokens=False,
+                max_length=max_length, truncation=True
+            )
+            if len(token_ids) < max_length:
+                token_ids += [processor.tokenizer.pad_token_id] * (max_length - len(token_ids))
+            for i, ids in target_token_seqs.items():
+                if token_ids[:len(ids)] == ids:
+                    feature_ids = i
+                    break
+            feature = np.zeros(num_qubits, dtype=np.float32)
+            if feature_ids < 2 ** num_qubits:
+                for i in range(len(feature)):
+                    if (feature_ids >> i) & 1:
+                        feature[i] = 1.0
+        elif experiment_name == "binary_1-best":
+            max_value, max_index = 0, 0
+            for i, ids in target_token_seqs.items():
+                prob = 1.0
+                for step, token_id in enumerate(ids):
+                    if step >= len(batch["probs"][0]):
+                        break
+                    prob *= batch["probs"][0][step][token_id]
+                if prob > max_value:
+                    max_value = prob
+                    max_index = i
+            feature = np.zeros(num_qubits, dtype=np.float32)
+            if max_index < 2 ** num_qubits:
+                for i in range(len(feature)):
+                    if (max_index >> i) & 1:
+                        feature[i] = 1.0
+        elif experiment_name == "binary_n-best_before":
+            # 全ての文字列の確率を計算し、top-5の出力を選ぶ
+            # 各文字列のidに対して2進数変換を行い，log_2(id)次元のベクトルに変換
+            # 各文字列の確率をかけて合算する
+            probs = batch["probs"]
+            scores = []
+            for i, ids in target_token_seqs.items():
+                prob = 1.0
+                for step, token_id in enumerate(ids):
+                    if step >= len(probs[0]):
+                        break
+                    prob *= probs[0][step][token_id]
+                scores.append((i, prob))
+            # Sort by probability in descending order and select top-5
+            top_n = sorted(scores, key=lambda x: x[1], reverse=True)[:n_best]
+            feature = np.zeros(num_qubits, dtype=np.float32)
+            for idx, prob in top_n:
+                if idx < 2 ** num_qubits:
+                    for i in range(len(feature)):
+                        if (idx >> i) & 1:
+                            feature[i] += prob
         else:
             raise ValueError(f"Unknown experiment_name: {experiment_name}")
         # When all probabilities are zero, the feature vector becomes all zeros
@@ -104,7 +159,7 @@ def prepare_feature(
         if sum(feature) == 0:
             feature[0] = 1.0
         # Normalize the feature vector
-        feature = feature / np.sum(feature)
+        # feature = feature / np.sum(feature)
         batch["input_features"] = feature
 
         # ラベルの取得と変換
@@ -112,5 +167,52 @@ def prepare_feature(
         batch["labels"] = slots_dic.get(label, 0)
         return batch
     dataset = dataset.map(_culc_text_prob, remove_columns=dataset.column_names, load_from_cache_file=False)
+    dataset.set_format(type="torch", columns=["input_features", "labels"])
+    return dataset
+
+def prepare_feature_sum_after_dst(
+        dataset_path: str,
+        model,
+        processor,
+        num_qubits: int = 10,
+        max_length: int = 10,
+        n_best = 5,
+    ) -> Dict:
+    # Load dataset
+    dataset = load_from_disk(dataset_path)
+
+    # Load tokenizer cache and slot dictionary
+    with open("multiple_word_dataset/tokenizer_cache/tokenizer_cache_traindev.json", "r") as f:
+        target_token_seqs = json.load(f)
+    target_token_seqs = {int(k): v for k, v in target_token_seqs.items()}
+    with open("multiple_word_dataset/dictionary/slot_list.json", 'r') as f:
+        slots_dic = json.load(f)
+
+    # Process dataset for binary_n-best
+    def _process_batch(batch: Dict) -> Dict:
+        probs = batch["probs"]
+        scores = []
+        for i, ids in target_token_seqs.items():
+            prob = 1.0
+            for step, token_id in enumerate(ids):
+                if step >= len(probs[0]):
+                    break
+                prob *= probs[0][step][token_id]
+            scores.append((i, prob))
+        # Sort by probability in descending order and select top-n_best
+        top_n = sorted(scores, key=lambda x: x[1], reverse=True)[:n_best]
+        feature = np.zeros((n_best, num_qubits), dtype=np.float32)
+        for row, (idx, _) in enumerate(top_n):
+            if idx < 2 ** num_qubits:
+                for col in range(num_qubits):
+                    if (idx >> col) & 1:
+                        feature[row][col] = 1.0
+
+        batch["input_features"] = feature
+        label = batch["slots"][0]
+        batch["labels"] = slots_dic.get(label, 0)
+        return batch
+
+    dataset = dataset.map(_process_batch, remove_columns=dataset.column_names, load_from_cache_file=False)
     dataset.set_format(type="torch", columns=["input_features", "labels"])
     return dataset

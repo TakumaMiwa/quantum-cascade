@@ -42,9 +42,11 @@ def main() -> None:
         "nn_gold": "multiple_word_output/nn/gold/metrics.csv",
         "nn_whisper_1_best": "multiple_word_output/nn/whisper_1_best/metrics.csv",
         "nn_whisper_amplitude": "multiple_word_output/nn/whisper_amplitude/metrics.csv",
+        "nn_binary_gold": "multiple_word_output/nn/binary_gold/metrics.csv",
+        "nn_binary_1_best": "multiple_word_output/nn/binary_1-best/metrics.csv",
         "qnn_gold": "multiple_word_output/qnn/gold/metrics.csv",
-        "qnn_whisper_1_best": "multiple_word_output/qnn/whisper_1_best/metrics.csv",
-        "qnn_whisper_amplitude": "multiple_word_output/qnn/whisper_amplitude/metrics.csv",
+        "qnn_1_best": "multiple_word_output/qnn/whisper_1_best/metrics.csv",
+        "qnn_amplitude": "multiple_word_output/qnn/whisper_amplitude/metrics.csv"
     }
 
     # Load each metrics file if it exists
@@ -64,7 +66,7 @@ def main() -> None:
     for name, df in metrics.items():
         epochs = df["epoch"]
         ax_train_loss.plot(epochs, df["train_loss"], label=name)
-        ax_test_loss.plot(epochs, df["test_loss"], label=name)
+        ax_test_loss.plot(epochs, df["val_loss"], label=name)
         ax_acc.plot(epochs, df["accuracy"], label=name)
 
     ax_train_loss.set_xlabel("Epoch")
@@ -86,7 +88,7 @@ def main() -> None:
     summary = {
         name: {
             "train_loss": df["train_loss"].iloc[-1],
-            "test_loss": df["test_loss"].iloc[-1],
+            "val_loss": df["val_loss"].iloc[-1],
             "accuracy": df["accuracy"].iloc[-1],
         }
         for name, df in metrics.items()
@@ -95,12 +97,13 @@ def main() -> None:
     print("Final metrics:")
     print(summary_df)
 
-    output_dir = "multiple_word_output"
+    output_dir = "multiple_word_output/output_summary"
+    date = "20250816"
     os.makedirs(output_dir, exist_ok=True)
-    summary_df.to_csv(os.path.join(output_dir, "metrics_summary.csv"))
+    summary_df.to_csv(os.path.join(output_dir, f"metrics_summary_{date}.csv"))
 
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, "learning_process.png"))
+    plt.savefig(os.path.join(output_dir, f"learning_process_{date}.png"))
 
 
 if __name__ == "__main__":
