@@ -39,7 +39,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--model_output", default="multiple_word_output/nn", help="Where to save the trained model")
     parser.add_argument("--lr", type=float, default=1e-3)
-    parser.add_argument("--experiment_name", default="binary_n-best", help="Feature generation method")
+    parser.add_argument("--experiment_name", default="binary_n-best_after", help="Feature generation method")
     return parser.parse_args()
 
 

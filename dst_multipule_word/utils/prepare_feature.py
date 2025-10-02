@@ -159,7 +159,7 @@ def prepare_feature(
         if sum(feature) == 0:
             feature[0] = 1.0
         # Normalize the feature vector
-        # feature = feature / np.sum(feature)
+        feature = feature / np.sum(feature)
         batch["input_features"] = feature
 
         # ラベルの取得と変換
@@ -180,6 +180,33 @@ def prepare_feature_sum_after_dst(
     ) -> Dict:
     # Load dataset
     dataset = load_from_disk(dataset_path)
+
+    # Add audio column processing
+    dataset = dataset.cast_column("audio", datasets.Audio(sampling_rate=16000))
+
+    # Generate "probs" column
+    def _generate(batch: Dict) -> Dict:
+        audio = batch["audio"]
+        input_features = processor.feature_extractor(
+            audio["array"], sampling_rate=audio["sampling_rate"]
+        ).input_features
+        input_features = torch.tensor(input_features).to("cuda")
+        with torch.no_grad():
+            outputs = model.generate(
+                input_features=input_features,
+                return_dict_in_generate=True,
+                output_scores=True,
+                max_new_tokens=max_length,
+            )
+        logits = torch.stack(outputs.scores, dim=1)
+        probs = torch.nn.functional.softmax(logits, dim=-1)
+        batch["probs"] = probs
+        return batch
+
+    dataset = dataset.map(
+        _generate,
+        load_from_cache_file=False,
+    )
 
     # Load tokenizer cache and slot dictionary
     with open("multiple_word_dataset/tokenizer_cache/tokenizer_cache_traindev.json", "r") as f:
@@ -211,7 +238,7 @@ def prepare_feature_sum_after_dst(
                         feature[row][col] = 1.0
 
         batch["input_features"] = feature
-        batch["text_probs"] = text_probs
+        batch["text_probs"] = text_probs / sum(text_probs) if sum(text_probs) > 0 else text_probs
         label = batch["slots"][0]
         batch["labels"] = slots_dic.get(label, 0)
         return batch

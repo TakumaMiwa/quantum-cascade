@@ -1,0 +1,5 @@
+/.config
+.config
+# ignore any local secrets
+*.key
+secrets.json

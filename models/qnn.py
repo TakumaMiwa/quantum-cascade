@@ -17,7 +17,16 @@ class QuantumNeuralNetwork(nn.Module):
         @qml.qnode(dev, interface="torch")
         def circuit(inputs, weights):
             qml.templates.AmplitudeEmbedding(inputs, wires=range(num_qubits), normalize=True)
-            qml.templates.StronglyEntanglingLayers(weights, wires=range(num_qubits))
+            
+            for i in range(num_layers):
+                
+                for j in range(num_qubits):
+                    qml.RX(weights[i, j, 0], wires=j)
+                    qml.RY(weights[i, j, 1], wires=j)
+                    qml.RZ(weights[i, j, 2], wires=j)
+                for j in range(num_qubits):
+                    qml.CNOT(wires=[j, (j + 1) % num_qubits])
+            
             return [qml.expval(qml.PauliZ(i)) for i in range(num_qubits)]
 
         self.qlayer = qml.qnn.TorchLayer(circuit, weight_shapes)

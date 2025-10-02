@@ -40,12 +40,12 @@ def parse_args() -> argparse.Namespace:
         default="openai/whisper-small",
         help="Path or name of the processor to use",
     )
-    parser.add_argument("--model_output", default="multiple_word_output/qnn", help="Where to save the trained model")
-    parser.add_argument("--lr", type=float, default=5e-4)
+    parser.add_argument("--model_output", default="multiple_word_output2/qnn", help="Where to save the trained model")
+    parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument(
-        "--experiment_name", default="amplitude", help="Feature generation method (amplitude or 1-best)"
+        "--experiment_name", default="1-best", help="Feature generation method (amplitude or 1-best)"
     )
-    parser.add_argument("--save_dir", default="whisper_amplitude_0.0005", help="Directory to save the model and metrics")
+    parser.add_argument("--save_dir", default="whisper_1_best", help="Directory to save the model and metrics")
     return parser.parse_args()
 
 
